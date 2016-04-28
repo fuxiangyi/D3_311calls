@@ -14,14 +14,11 @@ var
     h2 = d3.select('.plot2').node().clientHeight;
 
 
-
-
 //load data
 var queue = d3_queue.queue()
-    //.defer(d3.json, "../data/Zoning_Subdistricts.geojson")
-    .defer(d3.json, "../data/bos_neighborhoods.geojson")
-    .defer(d3.csv,'../data/311__Service_Requests.csv',parse)
-    .defer(d3.csv,'../data/metadata_reduced.csv',parseType)
+    .defer(d3.json, "data/bos_neighborhoods.geojson")
+    .defer(d3.csv,'data/311__Service_Requests.csv',parse)
+    .defer(d3.csv,'data/metadata_reduced.csv',parseType)
     .await(dataloaded);
 
 globalDispatch = d3.dispatch('changetype','pickTime', 'changetime','changetypedots');
@@ -33,7 +30,6 @@ function dataloaded(err,neighborhood,rows,types) {
 
 
     d3.select(".type-list").on("change", function () {
-        //console.log(this);
         globalDispatch.changetype(this.value);
     });
 
@@ -63,7 +59,7 @@ function dataloaded(err,neighborhood,rows,types) {
         return d.duration}else{return 0}
     });
 
-    console.log("all, max:"+ max + ", min" + min + ", mean"+ mean +" median" + median)
+    //console.log("all, max:"+ max + ", min" + min + ", mean"+ mean +" median" + median)
 
     var data = rows;
     var calls = crossfilter(data);
@@ -74,9 +70,9 @@ function dataloaded(err,neighborhood,rows,types) {
 
     callsType = callsByType.filterAll().top(Infinity);
     //callsType.sort(function (a, b) {
-    //    return a.neighbor - b.neighbor;
+    //    return a.duration - b.duration;
     //});
-    //nest by type and then by neighborhood
+
     var nestedNeighborhood = d3.nest()
         .key(function (d) {
             return name = d.neighbor
@@ -95,10 +91,17 @@ function dataloaded(err,neighborhood,rows,types) {
         .value(function(d){ return d.startTime;})
         .interval(d3.time.week)
         .on('changetime',function(xy){
-          
+            //console.log(xy);
             var callsTime = callsByTime.filter([xy[0],xy[1]]).top(Infinity);
+
+            /*   d3.select(".start-date").html(xy[0]);
+             d3.select(".end-date").html(xy[1]);*/
+
             globalDispatch.changetypedots(callsTime); //this is t in the module
-           
+            //console.log(callsTime);
+            /*   d3.select(".start-date").html(xy[0]); //add text to html element
+             d3.select(".end-date").html(xy[1]);
+             globalDispatch.changetypedots(xy);*/
 
         });
 
@@ -246,7 +249,6 @@ function dataloaded(err,neighborhood,rows,types) {
 
     globalDispatch.on('changetypedots',function(t){
         mapModuleDots.shape(t);
-      
     });
 
     //dots
@@ -297,7 +299,6 @@ function dataloaded(err,neighborhood,rows,types) {
     var plots2 = d3.select('.container').select(".neighborhoods").selectAll('.plot2')
         .data(nestedNeighborhood);
 
-//console.log(nestedNeighborhood);
     plots2
         .enter()
         .append('div')
@@ -312,7 +313,7 @@ function dataloaded(err,neighborhood,rows,types) {
                 .value(function (d) {
                     return d.startTime;
                 })
-                .maxY(1900)
+                .maxY(1800)
                 .binSize(d3.time.week)
                 .on('hover', function (t) {
                     globalDispatch.pickTime(t);
@@ -338,15 +339,8 @@ function dataloaded(err,neighborhood,rows,types) {
 
     //Dispatch function
     globalDispatch.on("changetype", function (type) {
-
-   
-
-       
-        
-
         d3.select('.container').select(".neighborhoods").selectAll('.plot2').selectAll('p').remove();
         d3.select('.container').select(".neighborhoods").selectAll('.plot2').selectAll('svg').remove();
-
 
 
         var neighborhoodsNames = ["Allston / Brighton", "Back Bay", "Beacon Hill", "Boston", "Brighton", "Charlestown", "Chestnut Hill", "Dorchester", "Downtown / Financial District", "East Boston", "Fenway / Kenmore / Audubon Circle / Longwood", "Greater Mattapan", "Hyde Park", "Jamaica Plain", "Mission Hill", "Roslindale", "Roxbury", "South Boston / South Boston Waterfront", "South End", "Unknown", "West Roxbury"]
@@ -355,16 +349,14 @@ function dataloaded(err,neighborhood,rows,types) {
         callsByTime.filterAll();
 
         if (type == "All") {
-            //console.log("all");
             callsType = callsByType.filterAll().top(Infinity);
-
-
         } else {
             callsType = callsByType.filter(type).top(Infinity);
 
         };
-
-        console.log(callsType);
+        callsType.sort(function (a, b) {
+            return a.duration - b.duration;
+        });
 
         var nestedNeighborhoodInDispatch = d3.nest()
             .key(function (d) {
@@ -379,10 +371,6 @@ function dataloaded(err,neighborhood,rows,types) {
         plot1.datum(nestedNeighborhoodInDispatch)
             .call(durationModule);
 
-
-
-  
-
         if (type == "Request for Snow Plowing" || type == "All" || type == "Missed Trash/Recycling/Yard Waste/Bulk Item") {
             var barchartInDispatch = barchart
                 .maxScaleY(12000);
@@ -394,28 +382,19 @@ function dataloaded(err,neighborhood,rows,types) {
             var newY = 50;
         };
 
-
-
         d3.select('.brush').call(brush.clear());
-      
-        
-        barPlot.datum(callsType)
-               .call(barchartInDispatch);
 
-        
+        barPlot.datum(callsType)
+            .call(barchartInDispatch);
 
         plot_mapDots.datum(callsType)
             .call(mapModuleDots);
 
         mapModuleDots.shape(callsByTime.filter(type).top(Infinity));
-        
-        
-            
 
-             
-       var plots2 = d3.select('.container').select(".neighborhoods").selectAll('.plot2')
-        .data(nestedNeighborhoodInDispatch);
-            //console.log(nestedNeighborhoodInDispatch)
+
+        var plots2 = d3.select('.container').selectAll('.plot2')
+            .data(nestedNeighborhoodInDispatch);
 
 
         plots2
@@ -436,33 +415,34 @@ function dataloaded(err,neighborhood,rows,types) {
                     timeSeries2.showValue(t);
                 });
 
-                d3.select(this)
-                  .datum(d.values)
-                  .call(timeSeries2)
-                  .append('p')
-                  .text(d.key)
-                  .attr("class","neighborhood-names")
-                  .style("fill","fff")
-                  .transition()
-                  .duration(500)
-                  .style("fill","#333");
+                d3.select(this).datum(d.values)
+                    .call(timeSeries2)
+                    .append("p")
+                    .text(d.key)
+                    .attr("class","neighborhood-names")
+                    .style("fill","fff")
+                    .transition()
+                    .duration(500)
+                    .style("fill","#333");
             });
+
 
 
 
     });
 }
 
+
 // parse data
 function parse(d){
 
-	return {
-		startTime: new Date(d.OPEN_DT),
-		endTime: new Date(d.CLOSED_DT),
-		type: d.TYPE,
-		neighbor: d.neighborhood,
+    return {
+        startTime: new Date(d.OPEN_DT),
+        endTime: new Date(d.CLOSED_DT),
+        type: d.TYPE,
+        neighbor: d.neighborhood,
         lngLat: [+d.LONGITUDE, +d.LATITUDE]
-	}
+    }
 
 
 
@@ -471,7 +451,7 @@ function parse(d){
 function parseType(n){
     d3.select(".type-list") //class in the html file
         .append("option") //it has to be called this name
-        .html(n.type)
+        .html(n.type + " (" + n.number + ")")
         .attr("value", n.type)
 }
 

@@ -1,3 +1,4 @@
+
 d3.mapDotsSeries = function (neighborhoods){
     var _dis = d3.dispatch('changetype','shape');
 
@@ -36,23 +37,28 @@ d3.mapDotsSeries = function (neighborhoods){
             .translate([(chartW/2),((chartH/2)+200)])
             .scale(scale);
 
-  /*      var canvas0 = d3.select(this).selectAll('canvas');*/
+        // Select old canvases to remove after fade.
+        var canvas0 = d3.selectAll("canvas");
 
-        var canvas = d3.select(this).select('canvas')
+        var canvas1 = d3.select(this).insert('canvas')
             .attr('width',chartW)
             .attr('height',chartH)
-            .attr("transform","translate("+m.l+","+ m.t+")");
-          /*  .style("opacity", 0);*/
+            .attr("transform","translate("+m.l+","+ m.t+")")
+            .style("opacity",0);
 
-        ctx = canvas.node().getContext('2d');
+        var ctx = canvas1.node().getContext('2d');
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, chartW, chartH);
 
-        path = d3.geo.path()
+
+
+        var path = d3.geo.path()
             .projection(projection)
             .context(ctx);
 
         var circle = d3.geo.circle();
 
-        ctx.clearRect(0,0,w,h);
+        //ctx.clearRect(0,0,w,h);
 
         var oneHour = (1/(24*60));
         var color1 = "#376E7C"; //in one hour
@@ -72,26 +78,18 @@ d3.mapDotsSeries = function (neighborhoods){
         });
 
 
-
         //question!! how brush work?? and how to clear the canvas dots at the end
         _dis.on("shape",function(t){
 
-
-
-            ctx.clearRect(0,0,w,h);
+            //ctx.clearRect(0,0,w,h);
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(0, 0, chartW, chartH);
             ctx.lineWidth = 2;
             path(neighborhoods);
             ctx.fillStyle = 'rgb(221, 223, 227)';
             ctx.strokeStyle = "rgb(221, 223, 227)";
             //ctx.fill();
             ctx.stroke();
-/*
-        canvas.transition()
-        .duration(350)
-        .style("opacity", 1)
-        .each("end", function() { canvas0.remove(); });*/
-
-
 
             (neighborhoods.features).forEach(function(d){
                 var nameX = path.centroid(d)[0];
@@ -285,28 +283,35 @@ d3.mapDotsSeries = function (neighborhoods){
 
             if (t.length > 0){
 
-                var endDate = t[0].startTime,
-                    startDate = t[(t.length)-1].startTime;
+                //Crossfilter range filters selecting the objects that are the same or equal to the first value and LESS than the second one.
+                // This means that the last call in our array cannot be selected if we don't change a bit the last value (adding 1 second)
+                var tEndMiliseconds = Math.abs(t[0].startTime) + 1000;
+                var tEndDate = new Date (tEndMiliseconds);
 
-                var callsNewTimeRange = callsByTime.filter([startDate,endDate]).top(Infinity);
+                var end = tEndDate,
+                    start = t[(t.length)-1].startTime;
 
             } if (t.length ==0){
-                var endDate = new Date ('January 01, 2015 00:00:00'),
-                    startDate = new Date ('January 01, 2016 00:00:00');
+                var end = new Date ('January 01, 2015 00:00:00'),
+                    start = new Date ('January 01, 2016 00:00:00');
+
             };
+
+            var callsNewTimeRange = callsByTime.filter([start,end]).top(Infinity);
+
+            var color1 = "#376E7C"; //in one hour
+            var color2 = "#A5BEC4"; // from one hour to 1 day
+            var color3 = "#EAE3D7"; // from 1 day to the average
+            var color4 = "#F3919A"; // from the average to one month
+            var color5 = "#EF4553"; // from one month to one year
+            var color6 = "#BC000E"; // more than one year
 
             //draw every call as a dot
             callsNewTimeRange.forEach(function (d){
-
-                var color1 = "#376E7C"; //in one hour
-                var color2 = "#A5BEC4"; // from one hour to 1 day
-                var color3 = "#EAE3D7"; // from 1 day to the average
-                var color4 = "#F3919A"; // from the average to one month
-                var color5 = "#EF4553"; // from one month to one year
-                var color6 = "#BC000E"; // more than one year
-
+                var mySize = 1.5;
 
                 if (d.duration < oneHour ) {
+
                     var myColor = color1; //13,374 calls
                 }else if (d.duration>oneHour && d.duration<1){
                     var myColor = color2; //65.991 calls
@@ -315,11 +320,12 @@ d3.mapDotsSeries = function (neighborhoods){
                 }else if (d.duration>12 && d.duration<30){
                     var myColor = color4; //20551 calls
                 }else if (d.duration>30 && d.duration<90){
+
                     var myColor = color5; //17164 calls
                 }else if (d.duration>90) {
                     //console.log("d")
                     var myColor = color6; //4542 calls
-                }
+                };
 
                 var xy = projection(d.lngLat);
                 var callstartTime = d.startTime.getTime();
@@ -327,21 +333,15 @@ d3.mapDotsSeries = function (neighborhoods){
                 //var myColor = scaleColor(d.duration);
                 //var mySize = scaleSize(d.duration);
 
-                var mySize = 1.5;
                 ctx.globalAlpha=0.5;
                 ctx.beginPath();
-                ctx.strokeStyle = "rgba(0,0,0,0.1)";
-                ctx.lineWidth = 0.01;
                 ctx.fillStyle = myColor;
                 ctx.arc(xy[0],xy[1],mySize,0,Math.PI*2); //(x,y,r,sAngle,eAngel,counterclockwise)
                 ctx.fill();
                 //ctx.stroke();
                 ctx.globalAlpha=1;
 
-
-
             });
-        
 
             (neighborhoods.features).forEach(function(d){
                 var nameX = path.centroid(d)[0];
@@ -424,7 +424,7 @@ d3.mapDotsSeries = function (neighborhoods){
                     ctx.moveTo(nameX,nameY);
                     ctx.lineTo(nameX,newY);
                     ctx.lineTo(890,newY);
-                   // console.log(newY)
+                    //console.log(newY)
                     ctx.stroke()
                 }else if (d.properties.Name=="West End") {
                     var newY = 237;
@@ -492,9 +492,19 @@ d3.mapDotsSeries = function (neighborhoods){
                     ctx.stroke()
                 };
 
-
             });
+            canvas1.transition()
+                .duration(350)
+                .style("opacity", 1)
+                .each("end", function() {
+                    canvas0
+                        .remove();
+                });
+
+
         });
+
+
 
     }
 
@@ -537,3 +547,4 @@ d3.mapDotsSeries = function (neighborhoods){
     d3.rebind(exports,_dis,"on","shape");
     return exports
 };
+
